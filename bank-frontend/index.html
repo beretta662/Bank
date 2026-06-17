@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bank - Frontend</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0 }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f0f4f8; color: #1a202c; min-height: 100vh }
+
+  .container { max-width: 1300px; margin: 0 auto; padding: 24px 20px }
+
+  /* ── Header ── */
+  .header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px }
+  .header-left { display: flex; align-items: center; gap: 12px }
+  .header-icon { width: 40px; height: 40px; border-radius: 10px; background: #185FA5; display: flex; align-items: center; justify-content: center }
+  .header-icon i { color: #fff; font-size: 20px }
+  .header h1 { font-size: 20px; font-weight: 600; color: #1a202c }
+  .header-sub { font-size: 12px; color: #718096; margin-top: 1px }
+  .header-badge { background: #EBF4FF; border: 1px solid #BEE3F8; border-radius: 8px; padding: 6px 14px; font-size: 13px; color: #2B6CB0; display: flex; align-items: center; gap: 6px }
+
+  /* ── Stats ── */
+  .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 24px }
+  .stat-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 16px }
+  .stat-label { font-size: 12px; color: #718096; margin-bottom: 4px }
+  .stat-value { font-size: 22px; font-weight: 600; color: #1a202c }
+
+  /* ── Main grid ── */
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px }
+  @media (max-width: 768px) { .grid { grid-template-columns: 1fr } .stats { grid-template-columns: 1fr } }
+
+  /* ── Cards ── */
+  .card { background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 20px }
+  .card-header { display: flex; align-items: center; gap: 8px; margin-bottom: 18px }
+  .card-header i { font-size: 16px }
+  .card-title { font-size: 15px; font-weight: 600; color: #1a202c }
+  .card-icon-blue { color: #185FA5 }
+  .card-icon-green { color: #276749 }
+
+  /* ── Form elements ── */
+  .field { margin-bottom: 14px }
+  label { display: block; font-size: 13px; font-weight: 500; color: #4a5568; margin-bottom: 5px }
+  input, select {
+    width: 100%; padding: 9px 12px;
+    border: 1px solid #e2e8f0; border-radius: 8px;
+    background: #fff; color: #1a202c;
+    font-size: 14px; outline: none;
+    transition: border-color .15s, box-shadow .15s
+  }
+  input:focus, select:focus { border-color: #185FA5; box-shadow: 0 0 0 3px rgba(24,95,165,0.1) }
+  input::placeholder { color: #a0aec0 }
+
+  /* ── Buttons ── */
+  .btn { width: 100%; padding: 10px; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; transition: opacity .15s, transform .1s; display: flex; align-items: center; justify-content: center; gap: 6px }
+  .btn:hover { opacity: .88 }
+  .btn:active { transform: scale(0.98) }
+  .btn:disabled { opacity: .5; cursor: not-allowed }
+  .btn-primary { background: #185FA5; color: #fff }
+  .btn-success { background: #276749; color: #fff }
+  .btn-danger-sm { background: #FED7D7; color: #9B2C2C; border: none; border-radius: 6px; padding: 4px 10px; font-size: 12px; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; transition: opacity .15s }
+  .btn-danger-sm:hover { opacity: .8 }
+
+  /* ── Messages ── */
+  .message { margin-top: 10px; padding: 9px 12px; border-radius: 8px; font-size: 13px; display: none }
+  .message.success { background: #C6F6D5; color: #276749 }
+  .message.error { background: #FED7D7; color: #9B2C2C }
+
+  /* ── Solde info ── */
+  .solde-info { font-size: 12px; color: #718096; margin-bottom: 12px; display: none; padding: 6px 10px; background: #EBF8FF; border-radius: 6px }
+  .solde-info strong { color: #2B6CB0 }
+
+  /* ── Tab buttons ── */
+  .tab-group { display: flex; gap: 8px }
+  .tab-btn { border: 1px solid #e2e8f0; background: #f7fafc; color: #4a5568; border-radius: 8px; padding: 5px 14px; font-size: 13px; font-weight: 500; cursor: pointer; display: inline-flex; align-items: center; gap: 5px; transition: all .15s }
+  .tab-btn:hover { background: #EBF4FF; color: #185FA5 }
+  .tab-btn.active { background: #185FA5; color: #fff; border-color: #185FA5 }
+
+  /* ── Bottom card ── */
+  .bottom-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 20px }
+  .bottom-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px }
+  .bottom-title { display: flex; align-items: center; gap: 8px }
+  .bottom-title i { font-size: 16px; color: #185FA5 }
+  .bottom-title p { font-size: 15px; font-weight: 600; color: #1a202c }
+
+  /* ── Table ── */
+  table { width: 100%; border-collapse: collapse; font-size: 13px }
+  th { padding: 9px 12px; text-align: left; background: #f7fafc; color: #718096; font-weight: 600; border-bottom: 1px solid #e2e8f0 }
+  td { padding: 9px 12px; border-bottom: 1px solid #f0f4f8; color: #1a202c }
+  tr:last-child td { border-bottom: none }
+  tr:hover td { background: #f7fafc }
+
+  /* ── Avatar ── */
+  .avatar { width: 28px; height: 28px; border-radius: 50%; background: #EBF4FF; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 600; color: #2B6CB0; flex-shrink: 0 }
+
+  /* ── Badges ── */
+  .badge { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 20px; font-size: 12px; font-weight: 500 }
+  .badge-credit { background: #C6F6D5; color: #276749 }
+  .badge-debit { background: #FED7D7; color: #9B2C2C }
+  .badge-virement { background: #EBF4FF; color: #2B6CB0 }
+
+  /* ── Empty state ── */
+  .empty { text-align: center; padding: 2.5rem; color: #a0aec0; font-size: 14px }
+  .empty i { font-size: 36px; display: block; margin-bottom: 8px }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <!-- Header -->
+  <div class="header">
+    <div class="header-left">
+      <div class="header-icon"><i class="ti ti-building-bank"></i></div>
+      <div>
+        <div class="header h1" style="font-size:20px;font-weight:600">Bank</div>
+        <div class="header-sub">Tableau de bord bancaire</div>
+      </div>
+    </div>
+    <div class="header-badge">
+      <i class="ti ti-users" style="font-size:14px"></i>
+      <span id="totalComptes">0</span> compte(s)
+    </div>
+  </div>
+
+  <!-- Stats -->
+  <div class="stats">
+    <div class="stat-card">
+      <div class="stat-label">Solde total</div>
+      <div class="stat-value" id="soldeTot">0 FCFA</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Transactions</div>
+      <div class="stat-value" id="nbTrans">0</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Dernière opération</div>
+      <div class="stat-value" id="lastOp" style="font-size:16px;padding-top:4px">—</div>
+    </div>
+  </div>
+
+  <!-- Two-column grid -->
+  <div class="grid">
+
+    <!-- Créer un compte -->
+    <div class="card">
+      <div class="card-header">
+        <i class="ti ti-user-plus card-icon-blue"></i>
+        <p class="card-title">Créer un compte</p>
+      </div>
+      <form id="accountForm" onsubmit="creerCompte(event)">
+        <div class="field">
+          <label for="firstName">Prénom</label>
+          <input type="text" id="firstName" placeholder="ex. Jean" required>
+        </div>
+        <div class="field">
+          <label for="lastName">Nom</label>
+          <input type="text" id="lastName" placeholder="ex. Dupont" required>
+        </div>
+        <div class="field">
+          <label for="email">Email</label>
+          <input type="email" id="email" placeholder="ex. jean@email.com" required>
+        </div>
+        <div class="field">
+          <label for="soldeInit">Solde initial (FCFA)</label>
+          <input type="number" id="soldeInit" placeholder="0" min="0" value="0">
+        </div>
+        <button type="submit" class="btn btn-primary" id="createBtn">
+          <i class="ti ti-plus"></i> Créer le compte
+        </button>
+        <div class="message" id="accountMessage"></div>
+      </form>
+    </div>
+
+    <!-- Effectuer une transaction -->
+    <div class="card">
+      <div class="card-header">
+        <i class="ti ti-arrows-exchange card-icon-green"></i>
+        <p class="card-title">Effectuer une transaction</p>
+      </div>
+      <form id="transactionForm" onsubmit="effectuerTransaction(event)">
+        <div class="field">
+          <label for="compteSelect">Compte source</label>
+          <select id="compteSelect" onchange="afficherSolde()">
+            <option value="">— sélectionner un compte —</option>
+          </select>
+        </div>
+        <div class="solde-info" id="soldeInfo">
+          <i class="ti ti-info-circle" style="font-size:13px;vertical-align:-2px"></i>
+          Solde disponible : <strong id="soldeVal">—</strong>
+        </div>
+        <div class="field">
+          <label for="typeTrans">Type de transaction</label>
+          <select id="typeTrans" onchange="toggleDestField()">
+            <option value="credit">Crédit</option>
+            <option value="debit">Débit</option>
+            <option value="virement">Virement</option>
+          </select>
+        </div>
+        <div class="field" id="destField" style="display:none">
+          <label for="compteDest">Compte destinataire</label>
+          <select id="compteDest">
+            <option value="">— sélectionner —</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="montant">Montant (FCFA)</label>
+          <input type="number" id="montant" placeholder="ex. 50000" min="1" required>
+        </div>
+        <div class="field">
+          <label for="motif">Motif</label>
+          <input type="text" id="motif" placeholder="ex. Loyer, Salaire...">
+        </div>
+        <button type="submit" class="btn btn-success">
+          <i class="ti ti-send"></i> Valider la transaction
+        </button>
+        <div class="message" id="transactionMessage"></div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Comptes & Historique -->
+  <div class="bottom-card">
+    <div class="bottom-header">
+      <div class="bottom-title">
+        <i class="ti ti-layout-list"></i>
+        <p>Comptes & Historique</p>
+      </div>
+      <div class="tab-group">
+        <button class="tab-btn active" id="btnComptes" onclick="showView('comptes')">
+          <i class="ti ti-users"></i> Comptes
+        </button>
+        <button class="tab-btn" id="btnHist" onclick="showView('historique')">
+          <i class="ti ti-clock"></i> Historique
+        </button>
+      </div>
+    </div>
+
+    <!-- Vue comptes -->
+    <div id="viewComptes">
+      <div class="empty" id="emptyComptes">
+        <i class="ti ti-users"></i>
+        Aucun compte créé pour l'instant
+      </div>
+      <table id="tableComptes" style="display:none">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Titulaire</th>
+            <th>Email</th>
+            <th>Solde</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody id="bodyComptes"></tbody>
+      </table>
+    </div>
+
+    <!-- Vue historique -->
+    <div id="viewHist" style="display:none">
+      <div class="empty" id="emptyHist">
+        <i class="ti ti-clock"></i>
+        Aucune transaction enregistrée
+      </div>
+      <table id="tableHist" style="display:none">
+        <thead>
+          <tr>
+            <th>Heure</th>
+            <th>Compte</th>
+            <th>Type</th>
+            <th>Montant</th>
+            <th>Motif</th>
+          </tr>
+        </thead>
+        <tbody id="bodyHist"></tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  let comptes = [];
+  let transactions = [];
+  let nextId = 1;
+
+  /* ── Helpers ── */
+  const el = id => document.getElementById(id);
+  const fmt = n => n.toLocaleString('fr-FR') + ' FCFA';
+
+  function showMsg(id, text, ok) {
+    const m = el(id);
+    m.textContent = text;
+    m.className = 'message ' + (ok ? 'success' : 'error');
+    m.style.display = 'block';
+    setTimeout(() => { m.style.display = 'none'; }, 3500);
+  }
+
+  /* ── Stats ── */
+  function updateStats() {
+    el('totalComptes').textContent = comptes.length;
+    el('soldeTot').textContent = fmt(comptes.reduce((s, c) => s + c.solde, 0));
+    el('nbTrans').textContent = transactions.length;
+    el('lastOp').textContent = transactions.length
+      ? transactions[transactions.length - 1].type.charAt(0).toUpperCase() + transactions[transactions.length - 1].type.slice(1)
+      : '—';
+  }
+
+  /* ── Selects ── */
+  function refreshSelects() {
+    const opts = comptes.map(c =>
+      `<option value="${c.id}">${c.prenom} ${c.nom} — ${fmt(c.solde)}</option>`
+    ).join('');
+    el('compteSelect').innerHTML = '<option value="">— sélectionner un compte —</option>' + opts;
+    el('compteDest').innerHTML   = '<option value="">— sélectionner —</option>' + opts;
+  }
+
+  function afficherSolde() {
+    const c = comptes.find(x => x.id == el('compteSelect').value);
+    if (c) {
+      el('soldeInfo').style.display = 'block';
+      el('soldeVal').textContent = fmt(c.solde);
+    } else {
+      el('soldeInfo').style.display = 'none';
+    }
+  }
+
+  function toggleDestField() {
+    el('destField').style.display = el('typeTrans').value === 'virement' ? 'block' : 'none';
+  }
+
+  /* ── Créer un compte ── */
+  function creerCompte(e) {
+    e.preventDefault();
+    const prenom = el('firstName').value.trim();
+    const nom    = el('lastName').value.trim();
+    const email  = el('email').value.trim();
+    const solde  = parseFloat(el('soldeInit').value) || 0;
+
+    if (!prenom || !nom || !email)
+      return showMsg('accountMessage', 'Veuillez remplir tous les champs.', false);
+    if (comptes.find(c => c.email === email))
+      return showMsg('accountMessage', 'Cet email est déjà utilisé.', false);
+
+    comptes.push({ id: nextId++, prenom, nom, email, solde });
+    showMsg('accountMessage', `Compte créé pour ${prenom} ${nom}.`, true);
+
+    el('accountForm').reset();
+    refreshSelects();
+    updateStats();
+    renderComptes();
+  }
+
+  /* ── Effectuer une transaction ── */
+  function effectuerTransaction(e) {
+    e.preventDefault();
+    const cid     = parseInt(el('compteSelect').value);
+    const type    = el('typeTrans').value;
+    const montant = parseFloat(el('montant').value);
+    const motif   = el('motif').value.trim() || '—';
+
+    if (!cid)              return showMsg('transactionMessage', 'Sélectionnez un compte source.', false);
+    if (!montant || montant <= 0) return showMsg('transactionMessage', 'Montant invalide.', false);
+
+    const c = comptes.find(x => x.id === cid);
+
+    if (type === 'virement') {
+      const did = parseInt(el('compteDest').value);
+      if (!did || did === cid)    return showMsg('transactionMessage', 'Sélectionnez un destinataire valide.', false);
+      if (c.solde < montant)      return showMsg('transactionMessage', 'Solde insuffisant pour le virement.', false);
+      const d = comptes.find(x => x.id === did);
+      c.solde -= montant;
+      d.solde += montant;
+    } else if (type === 'credit') {
+      c.solde += montant;
+    } else {
+      if (c.solde < montant) return showMsg('transactionMessage', 'Solde insuffisant.', false);
+      c.solde -= montant;
+    }
+
+    transactions.push({
+      date:   new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }),
+      compte: `${c.prenom} ${c.nom}`,
+      type,
+      montant,
+      motif
+    });
+
+    showMsg('transactionMessage', `Transaction "${type}" de ${fmt(montant)} effectuée.`, true);
+    el('transactionForm').reset();
+    el('destField').style.display = 'none';
+    el('soldeInfo').style.display = 'none';
+
+    refreshSelects();
+    updateStats();
+    renderComptes();
+    renderHist();
+  }
+
+  /* ── Supprimer un compte ── */
+  function supprimerCompte(id) {
+    if (!confirm('Supprimer ce compte ?')) return;
+    comptes = comptes.filter(c => c.id !== id);
+    refreshSelects();
+    updateStats();
+    renderComptes();
+    el('soldeInfo').style.display = 'none';
+  }
+
+  /* ── Rendu tableau comptes ── */
+  function renderComptes() {
+    if (!comptes.length) {
+      el('emptyComptes').style.display = 'block';
+      el('tableComptes').style.display = 'none';
+      return;
+    }
+    el('emptyComptes').style.display = 'none';
+    el('tableComptes').style.display = 'table';
+    el('bodyComptes').innerHTML = comptes.map(c => `
+      <tr>
+        <td style="color:#718096">#${c.id}</td>
+        <td>
+          <div style="display:flex;align-items:center;gap:8px">
+            <div class="avatar">${c.prenom[0]}${c.nom[0]}</div>
+            ${c.prenom} ${c.nom}
+          </div>
+        </td>
+        <td style="color:#718096">${c.email}</td>
+        <td style="font-weight:600">${fmt(c.solde)}</td>
+        <td>
+          <button class="btn-danger-sm" onclick="supprimerCompte(${c.id})">
+            <i class="ti ti-trash"></i> Supprimer
+          </button>
+        </td>
+      </tr>
+    `).join('');
+  }
+
+  /* ── Rendu tableau historique ── */
+  function renderHist() {
+    if (!transactions.length) {
+      el('emptyHist').style.display = 'block';
+      el('tableHist').style.display = 'none';
+      return;
+    }
+    el('emptyHist').style.display = 'none';
+    el('tableHist').style.display = 'table';
+    el('bodyHist').innerHTML = [...transactions].reverse().map(t => `
+      <tr>
+        <td style="color:#718096">${t.date}</td>
+        <td>${t.compte}</td>
+        <td><span class="badge badge-${t.type}">${t.type}</span></td>
+        <td style="font-weight:600">${fmt(t.montant)}</td>
+        <td style="color:#718096">${t.motif}</td>
+      </tr>
+    `).join('');
+  }
+
+  /* ── Onglets ── */
+  function showView(v) {
+    el('viewComptes').style.display = v === 'comptes'    ? 'block' : 'none';
+    el('viewHist').style.display    = v === 'historique' ? 'block' : 'none';
+    el('btnComptes').className = 'tab-btn' + (v === 'comptes'    ? ' active' : '');
+    el('btnHist').className    = 'tab-btn' + (v === 'historique' ? ' active' : '');
+  }
+</script>
+</body>
+</html>
