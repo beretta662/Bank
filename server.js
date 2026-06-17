@@ -1,21 +1,58 @@
 const express = require('express');
 const swaggerUi = require('swagger-ui-express');
 const swaggerJsdoc = require('swagger-jsdoc');
+const { Pool } = require('pg');
 
 const app = express();
 app.use(express.json());
 
-let accounts = [];
-let transactions = [];
-let accountIdCounter = 1;
+// CORS pour le frontend
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  if (req.method === 'OPTIONS') return res.sendStatus(200);
+  next();
+});
+
+// Postgres connection (use DATABASE_URL or defaults)
+const DATABASE_URL = process.env.DATABASE_URL || 'postgres://postgres:postgres@localhost:5432/bank';
+const pool = new Pool({ connectionString: DATABASE_URL });
+
+// Initialize DB schema if needed
+async function initDb() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS accounts (
+      id          SERIAL PRIMARY KEY,
+      first_name  TEXT NOT NULL,
+      last_name   TEXT NOT NULL,
+      email       TEXT UNIQUE NOT NULL,
+      balance     NUMERIC(18,2) NOT NULL DEFAULT 0,
+      created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+      status      TEXT NOT NULL DEFAULT 'active'
+    );
+
+    CREATE TABLE IF NOT EXISTS transactions (
+      id               SERIAL PRIMARY KEY,
+      account_id       INTEGER NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+      amount           NUMERIC(18,2) NOT NULL,
+      operation        TEXT NOT NULL,
+      date             TIMESTAMPTZ NOT NULL DEFAULT now(),
+      previous_balance NUMERIC(18,2),
+      new_balance      NUMERIC(18,2)
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_transactions_account_id ON transactions(account_id);
+  `);
+}
 
 // Configuration Swagger CORRECTE avec schémas complets
 const swaggerOptions = {
   definition: {
     openapi: '3.0.0',
-    info: { 
-      title: 'Bank API - Système Bancaire Professionnel', 
-      version: '1.0.0', 
+    info: {
+      title: 'Bank API - Système Bancaire Professionnel',
+      version: '1.0.0',
       description: 'API de gestion bancaire complète avec dépôts, retraits et historique'
     },
     servers: [
@@ -77,7 +114,7 @@ const swaggerOptions = {
               }
             }
           },
-          responses: { 
+          responses: {
             '201': {
               description: 'Compte créé avec succès',
               content: {
@@ -119,10 +156,10 @@ const swaggerOptions = {
           summary: 'Récupérer les détails d\'un compte',
           tags: ['Comptes'],
           parameters: [
-            { 
-              name: 'accountId', 
-              in: 'path', 
-              required: true, 
+            {
+              name: 'accountId',
+              in: 'path',
+              required: true,
               schema: { type: 'integer' },
               example: 1
             }
@@ -167,7 +204,7 @@ const swaggerOptions = {
               }
             }
           },
-          responses: { 
+          responses: {
             '200': {
               description: 'Transaction réussie',
               content: {
@@ -200,10 +237,10 @@ const swaggerOptions = {
           summary: 'Récupérer l\'historique des transactions',
           tags: ['Transactions'],
           parameters: [
-            { 
-              name: 'accountId', 
-              in: 'path', 
-              required: true, 
+            {
+              name: 'accountId',
+              in: 'path',
+              required: true,
               schema: { type: 'integer' },
               example: 1
             }
@@ -235,13 +272,11 @@ const swaggerOptions = {
   },
   apis: []
 };
-
 const specs = swaggerJsdoc(swaggerOptions);
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(specs));
-
 app.get('/', (req, res) => res.redirect('/api-docs'));
 
-// --- LOGIQUE METIER COMPLÈTE ET PROFESSIONNELLE ---
+// --- LOGIQUE METIER COMPLÈTE ET PROFESSIONNELLE (PostgreSQL) ---
 
 // Validation helper
 const validateEmail = (email) => {
@@ -249,161 +284,188 @@ const validateEmail = (email) => {
   return re.test(email);
 };
 
+function mapAccount(row) {
+  return {
+    id: row.id,
+    firstName: row.first_name,
+    lastName: row.last_name,
+    email: row.email,
+    balance: Number(row.balance),
+    createdAt: row.created_at.toISOString(),
+    status: row.status
+  };
+}
+
+function mapTransaction(row) {
+  return {
+    id: row.id,
+    accountId: row.account_id,
+    amount: Number(row.amount),
+    operation: row.operation,
+    date: row.date.toISOString(),
+    previousBalance: row.previous_balance !== null ? Number(row.previous_balance) : null,
+    newBalance: row.new_balance !== null ? Number(row.new_balance) : null
+  };
+}
+
 // 1. CRÉER UN COMPTE
-app.post('/accounts', (req, res) => {
+app.post('/accounts', async (req, res) => {
   try {
     const { firstName, lastName, email } = req.body;
 
-    // Validation des données
     if (!firstName || !lastName || !email) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         error: 'Les champs firstName, lastName et email sont obligatoires',
         status: 400
       });
     }
 
     if (!validateEmail(email)) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         error: 'Email invalide',
         status: 400
       });
     }
 
-    // Vérifier si l'email existe déjà
-    if (accounts.some(a => a.email === email)) {
-      return res.status(400).json({ 
+    const result = await pool.query(
+      'INSERT INTO accounts (first_name, last_name, email) VALUES ($1, $2, $3) RETURNING *',
+      [firstName, lastName, email]
+    );
+
+    res.status(201).json(mapAccount(result.rows[0]));
+  } catch (error) {
+    if (error.code === '23505') {
+      return res.status(400).json({
         error: 'Cet email est déjà utilisé',
         status: 400
       });
     }
-
-    const newAccount = {
-      id: accountIdCounter++,
-      firstName,
-      lastName,
-      email,
-      balance: 0,
-      createdAt: new Date().toISOString(),
-      status: 'active'
-    };
-
-    accounts.push(newAccount);
-    res.status(201).json(newAccount);
-  } catch (error) {
     res.status(500).json({ error: 'Erreur serveur', status: 500 });
   }
 });
 
 // 2. LISTER TOUS LES COMPTES
-app.get('/accounts', (req, res) => {
+app.get('/accounts', async (req, res) => {
   try {
-    res.json(accounts);
+    const result = await pool.query('SELECT * FROM accounts ORDER BY id');
+    res.json(result.rows.map(mapAccount));
   } catch (error) {
     res.status(500).json({ error: 'Erreur serveur', status: 500 });
   }
 });
 
 // 3. RÉCUPÉRER LES DÉTAILS D'UN COMPTE
-app.get('/accounts/:accountId', (req, res) => {
+app.get('/accounts/:accountId', async (req, res) => {
   try {
-    const accountId = parseInt(req.params.accountId);
-    const account = accounts.find(a => a.id === accountId);
+    const result = await pool.query('SELECT * FROM accounts WHERE id = $1', [req.params.accountId]);
 
-    if (!account) {
-      return res.status(404).json({ 
+    if (!result.rows.length) {
+      return res.status(404).json({
         error: 'Compte non trouvé',
         status: 404
       });
     }
 
-    res.json(account);
+    res.json(mapAccount(result.rows[0]));
   } catch (error) {
     res.status(500).json({ error: 'Erreur serveur', status: 500 });
   }
 });
 
 // 4. EFFECTUER UNE TRANSACTION (DÉPÔT OU RETRAIT)
-app.post('/transactions', (req, res) => {
+app.post('/transactions', async (req, res) => {
+  const client = await pool.connect();
   try {
     const { accountId, amount, operation } = req.body;
 
-    // Validation
     if (!accountId || amount === undefined || !operation) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         error: 'Les champs accountId, amount et operation sont obligatoires',
         status: 400
       });
     }
 
     if (typeof amount !== 'number' || amount <= 0) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         error: 'Le montant doit être un nombre positif',
         status: 400
       });
     }
 
     if (!['deposit', 'withdraw'].includes(operation)) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         error: 'L\'opération doit être "deposit" ou "withdraw"',
         status: 400
       });
     }
 
-    const account = accounts.find(a => a.id === parseInt(accountId));
+    await client.query('BEGIN');
 
-    if (!account) {
-      return res.status(404).json({ 
+    const accResult = await client.query(
+      'SELECT * FROM accounts WHERE id = $1 FOR UPDATE',
+      [accountId]
+    );
+
+    if (!accResult.rows.length) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({
         error: 'Compte non trouvé',
         status: 404
       });
     }
 
-    // Vérifier les fonds pour un retrait
-    if (operation === 'withdraw' && account.balance < amount) {
-      return res.status(400).json({ 
-        error: 'Fonds insuffisants. Solde disponible: ' + account.balance,
+    const account = accResult.rows[0];
+    const previousBalance = Number(account.balance);
+
+    if (operation === 'withdraw' && previousBalance < amount) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({
+        error: 'Fonds insuffisants. Solde disponible: ' + previousBalance,
         status: 400
       });
     }
 
-    // Effectuer la transaction
-    const previousBalance = account.balance;
-    account.balance += (operation === 'deposit' ? amount : -amount);
+    const newBalance = operation === 'deposit'
+      ? previousBalance + amount
+      : previousBalance - amount;
 
-    const transaction = {
-      id: transactions.length + 1,
-      accountId,
-      amount,
-      operation,
-      date: new Date().toISOString(),
-      previousBalance,
-      newBalance: account.balance
-    };
+    await client.query('UPDATE accounts SET balance = $1 WHERE id = $2', [newBalance, accountId]);
 
-    transactions.push(transaction);
+    const txResult = await client.query(
+      `INSERT INTO transactions (account_id, amount, operation, previous_balance, new_balance)
+       VALUES ($1, $2, $3, $4, $5) RETURNING *`,
+      [accountId, amount, operation, previousBalance, newBalance]
+    );
 
-    res.status(200).json(transaction);
+    await client.query('COMMIT');
+    res.status(200).json(mapTransaction(txResult.rows[0]));
   } catch (error) {
+    await client.query('ROLLBACK');
     res.status(500).json({ error: 'Erreur serveur', status: 500 });
+  } finally {
+    client.release();
   }
 });
 
 // 5. RÉCUPÉRER L'HISTORIQUE DES TRANSACTIONS
-app.get('/history/:accountId', (req, res) => {
+app.get('/history/:accountId', async (req, res) => {
   try {
     const accountId = parseInt(req.params.accountId);
 
-    // Vérifier que le compte existe
-    const account = accounts.find(a => a.id === accountId);
-    if (!account) {
-      return res.status(404).json({ 
+    const accResult = await pool.query('SELECT id FROM accounts WHERE id = $1', [accountId]);
+    if (!accResult.rows.length) {
+      return res.status(404).json({
         error: 'Compte non trouvé',
         status: 404
       });
     }
 
-    const history = transactions.filter(t => t.accountId === accountId);
-    res.json(history);
+    const result = await pool.query(
+      'SELECT * FROM transactions WHERE account_id = $1 ORDER BY date ASC',
+      [accountId]
+    );
+
+    res.json(result.rows.map(mapTransaction));
   } catch (error) {
     res.status(500).json({ error: 'Erreur serveur', status: 500 });
   }
@@ -411,14 +473,31 @@ app.get('/history/:accountId', (req, res) => {
 
 // Route 404
 app.use((req, res) => {
-  res.status(404).json({ 
+  res.status(404).json({
     error: 'Endpoint non trouvé',
     status: 404
   });
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`🚀 Serveur Bank API lancé sur http://localhost:${PORT}`);
-  console.log(`📚 Documentation Swagger: http://localhost:${PORT}/api-docs`);
-});
+
+// Ne démarre le serveur HTTP que si ce fichier est exécuté directement
+// (node server.js). Quand il est importé par les tests via require('./server'),
+// app.listen() n'est jamais appelé : on récupère juste l'app Express exportée.
+if (require.main === module) {
+  initDb()
+    .then(() => {
+      app.listen(PORT, () => {
+        console.log(`🚀 Serveur Bank API lancé sur http://localhost:${PORT}`);
+        console.log(`📚 Documentation Swagger: http://localhost:${PORT}/api-docs`);
+      });
+    })
+    .catch((err) => {
+      console.error('❌ Erreur lors de l\'initialisation de la base de données :', err);
+      process.exit(1);
+    });
+}
+
+module.exports = app;
+module.exports.pool = pool;
+module.exports.initDb = initDb;
